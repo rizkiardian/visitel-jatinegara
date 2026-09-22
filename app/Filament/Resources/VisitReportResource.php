@@ -3,9 +3,12 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\VisitReportResource\Pages;
+use App\Models\BusinessCustomer;
 use App\Models\VisitReport;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Infolists;
+use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -42,8 +45,8 @@ class VisitReportResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Detail Kunjungan')
-                    ->description('Informasi waktu dan personil yang melakukan kunjungan.')
+                Forms\Components\Section::make('Identitas Pelanggan & Kunjungan')
+                    ->description('Informasi pelanggan, personil Account Manager, dan jadwal pelaksanaan.')
                     ->schema([
                         Forms\Components\Select::make('employee_id')
                             ->relationship('employee', 'name')
@@ -51,15 +54,6 @@ class VisitReportResource extends Resource
                             ->preload()
                             ->required()
                             ->label('Account Manager (AM)'),
-                        Forms\Components\Select::make('business_customer_id')
-                            ->relationship('businessCustomer', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->required()
-                            ->label('Business Customer (BC)'),
-                        Forms\Components\TextInput::make('customer_pic_name')
-                            ->label('Nama PIC Pelanggan')
-                            ->placeholder('Nama kontak saat kunjungan'),
                         Forms\Components\Select::make('visit_type')
                             ->options([
                                 'Visit' => 'Direct Visit (Kunjungan Langsung)',
@@ -67,7 +61,51 @@ class VisitReportResource extends Resource
                             ])
                             ->required()
                             ->default('Visit')
+                            ->live()
                             ->label('Tipe Kunjungan'),
+                        Forms\Components\Select::make('business_customer_id')
+                            ->relationship('businessCustomer', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                if ($customer = BusinessCustomer::find($state)) {
+                                    $set('nipnas', $customer->nipnas ?? '-');
+                                    $set('bc_status', $customer->status ?? 'New');
+                                    if ($customer->default_pic_name) {
+                                        $set('customer_pic_name', $customer->default_pic_name);
+                                    }
+                                } else {
+                                    $set('nipnas', null);
+                                    $set('bc_status', null);
+                                }
+                            })
+                            ->label('Nama BC (Customer)'),
+                        Forms\Components\TextInput::make('nipnas')
+                            ->label('NIPNAS')
+                            ->placeholder('Auto-fill saat BC dipilih')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function (Forms\Components\TextInput $component, ?VisitReport $record) {
+                                if ($record?->businessCustomer) {
+                                    $component->state($record->businessCustomer->nipnas ?? '-');
+                                }
+                            }),
+                        Forms\Components\TextInput::make('bc_status')
+                            ->label('Status BC')
+                            ->placeholder('— pilih BC terlebih dahulu —')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function (Forms\Components\TextInput $component, ?VisitReport $record) {
+                                if ($record?->businessCustomer) {
+                                    $component->state($record->businessCustomer->status ?? '-');
+                                }
+                            }),
+                        Forms\Components\TextInput::make('customer_pic_name')
+                            ->label('PIC Pelanggan')
+                            ->placeholder('Nama kontak person saat kunjungan')
+                            ->required(),
                         Forms\Components\DatePicker::make('visit_date')
                             ->default(now())
                             ->required()
@@ -75,6 +113,46 @@ class VisitReportResource extends Resource
                         Forms\Components\TimePicker::make('visit_time')
                             ->default(now()->format('H:i'))
                             ->label('Waktu Kunjungan'),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Lokasi GPS & Peta Kunjungan')
+                    ->description('Konfirmasi posisi koordinat AM secara langsung melalui GPS browser.')
+                    ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'Visit' || $get('visit_type') === null)
+                    ->schema([
+                        Forms\Components\View::make('filament.forms.components.gps-location-picker')
+                            ->columnSpanFull(),
+                        Forms\Components\Hidden::make('latitude')
+                            ->dehydrated(false),
+                        Forms\Components\Hidden::make('longitude')
+                            ->dehydrated(false),
+                        Forms\Components\Hidden::make('accuracy_meters')
+                            ->dehydrated(false),
+                    ]),
+
+                Forms\Components\Section::make('Dokumentasi Foto Kunjungan')
+                    ->description('Unggah atau ambil foto langsung saat berada di lokasi kunjungan.')
+                    ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'Visit' || $get('visit_type') === null)
+                    ->schema([
+                        Forms\Components\FileUpload::make('photo_location')
+                            ->label('Foto Lokasi / Depan Gedung')
+                            ->image()
+                            ->disk('public')
+                            ->directory('visit-photos')
+                            ->visibility('public')
+                            ->imageEditor()
+                            ->dehydrated(false)
+                            ->helperText('Ambil foto gedung, gerbang, atau papan nama kantor customer.')
+                            ->columnSpan(1),
+                        Forms\Components\FileUpload::make('photo_pic')
+                            ->label('Foto Bersama PIC Pelanggan')
+                            ->image()
+                            ->disk('public')
+                            ->directory('visit-photos')
+                            ->visibility('public')
+                            ->imageEditor()
+                            ->dehydrated(false)
+                            ->helperText('Ambil foto saat berdiskusi atau bersama PIC customer.')
+                            ->columnSpan(1),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Funnel Penjualan & Layanan')
@@ -141,6 +219,120 @@ class VisitReportResource extends Resource
             ]);
     }
 
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Infolists\Components\Section::make('Identitas Pelanggan & Kunjungan')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('employee.name')
+                            ->label('Account Manager (AM)')
+                            ->icon('heroicon-m-user')
+                            ->hint(fn(VisitReport $record) => $record->employee?->telda?->name ? 'Telda: ' . $record->employee->telda->name : null),
+                        Infolists\Components\TextEntry::make('visit_type')
+                            ->label('Tipe Kunjungan')
+                            ->badge()
+                            ->color(fn(string $state): string => $state === 'Visit' ? 'primary' : 'gray'),
+                        Infolists\Components\TextEntry::make('businessCustomer.name')
+                            ->label('Nama Customer (BC)')
+                            ->icon('heroicon-m-building-office-2'),
+                        Infolists\Components\TextEntry::make('businessCustomer.nipnas')
+                            ->label('NIPNAS')
+                            ->placeholder('-'),
+                        Infolists\Components\TextEntry::make('businessCustomer.status')
+                            ->label('Status BC')
+                            ->badge()
+                            ->placeholder('New'),
+                        Infolists\Components\TextEntry::make('customer_pic_name')
+                            ->label('PIC Pelanggan')
+                            ->icon('heroicon-m-identification')
+                            ->placeholder('-'),
+                        Infolists\Components\TextEntry::make('visit_date')
+                            ->label('Tanggal Kunjungan')
+                            ->date('d F Y'),
+                        Infolists\Components\TextEntry::make('visit_time')
+                            ->label('Waktu Kunjungan')
+                            ->time('H:i')
+                            ->suffix(' WIB'),
+                    ])->columns(2),
+
+                Infolists\Components\Section::make('Lokasi GPS & Peta Kunjungan')
+                    ->schema([
+                        Infolists\Components\ViewEntry::make('gps_location')
+                            ->view('filament.infolists.components.gps-location-view')
+                            ->columnSpanFull(),
+                    ]),
+
+                Infolists\Components\Section::make('Dokumentasi Foto Kunjungan')
+                    ->schema([
+                        Infolists\Components\ViewEntry::make('visit_photos')
+                            ->view('filament.infolists.components.visit-photos-view')
+                            ->columnSpanFull(),
+                    ]),
+
+                Infolists\Components\Section::make('Funnel Penjualan & Layanan')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('activityCategory.name')
+                            ->label('Kategori Funnel')
+                            ->badge(),
+                        Infolists\Components\TextEntry::make('activityType.name')
+                            ->label('Jenis Kegiatan')
+                            ->placeholder('-'),
+                        Infolists\Components\TextEntry::make('rLevel.name')
+                            ->label('R-Level (Tingkat Kunjungan)')
+                            ->placeholder('-'),
+                        Infolists\Components\TextEntry::make('estimated_value')
+                            ->label('Estimasi Nilai Transaksi')
+                            ->money('IDR', locale: 'id_ID'),
+                        Infolists\Components\TextEntry::make('services.name')
+                            ->label('Layanan Ditawarkan / Terkait')
+                            ->badge()
+                            ->separator(', ')
+                            ->columnSpanFull(),
+                    ])->columns(2),
+
+                Infolists\Components\Section::make('Catatan Aktivitas & Voice of Customer')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('activity_description')
+                            ->label('Deskripsi Kegiatan / Story Kunjungan')
+                            ->placeholder('Tidak ada catatan kegiatan')
+                            ->columnSpanFull(),
+                        Infolists\Components\TextEntry::make('action_plan')
+                            ->label('Action Plan (Langkah Selanjutnya)')
+                            ->placeholder('Tidak ada action plan')
+                            ->columnSpanFull(),
+                        Infolists\Components\TextEntry::make('voc')
+                            ->label('Voice of Customer (VOC / Feedback)')
+                            ->placeholder('Tidak ada catatan VOC')
+                            ->columnSpanFull(),
+                    ]),
+
+                Infolists\Components\Section::make('Status Validasi Supervisor')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('validation_status')
+                            ->label('Status Validasi')
+                            ->badge()
+                            ->color(fn(string $state): string => match ($state) {
+                                'Valid' => 'success',
+                                'Rejected' => 'danger',
+                                'Pending' => 'warning',
+                                default => 'gray',
+                            }),
+                        Infolists\Components\TextEntry::make('validator.name')
+                            ->label('Validator / Supervisor')
+                            ->placeholder('Belum divalidasi'),
+                        Infolists\Components\TextEntry::make('validated_at')
+                            ->label('Waktu Validasi')
+                            ->dateTime('d M Y, H:i')
+                            ->placeholder('-'),
+                        Infolists\Components\TextEntry::make('validation_notes')
+                            ->label('Catatan Validasi')
+                            ->placeholder('-')
+                            ->columnSpanFull(),
+                    ])->columns(3),
+            ]);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -177,6 +369,22 @@ class VisitReportResource extends Resource
                     ->badge()
                     ->color(fn(string $state): string => $state === 'Visit' ? 'primary' : 'gray')
                     ->label('Tipe'),
+                Tables\Columns\IconColumn::make('locations_count')
+                    ->counts('locations')
+                    ->label('GPS')
+                    ->boolean()
+                    ->trueIcon('heroicon-s-map-pin')
+                    ->falseIcon('heroicon-o-minus')
+                    ->trueColor('info')
+                    ->tooltip(fn(VisitReport $record) => $record->locations()->exists() ? 'GPS Terverifikasi' : 'Tanpa Titik GPS'),
+                Tables\Columns\IconColumn::make('photos_count')
+                    ->counts('photos')
+                    ->label('Foto')
+                    ->boolean()
+                    ->trueIcon('heroicon-s-camera')
+                    ->falseIcon('heroicon-o-minus')
+                    ->trueColor('success')
+                    ->tooltip(fn(VisitReport $record) => $record->photos()->count() . ' Foto Terlampir'),
                 Tables\Columns\TextColumn::make('services.name')
                     ->badge()
                     ->separator(',')
@@ -246,7 +454,8 @@ class VisitReportResource extends Resource
                         ]);
                     })
                     ->visible(fn(VisitReport $record): bool => $record->validation_status === 'Pending'),
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->modalWidth('5xl'),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
