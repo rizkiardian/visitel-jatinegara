@@ -159,6 +159,8 @@ class VisitReportResource extends Resource
                             ->directory('visit-photos')
                             ->visibility('public')
                             ->imageEditor()
+                            ->openable()
+                            ->downloadable()
                             ->dehydrated(false)
                             ->helperText('Ambil foto gedung, gerbang, atau papan nama kantor customer.')
                             ->columnSpan(1),
@@ -169,6 +171,8 @@ class VisitReportResource extends Resource
                             ->directory('visit-photos')
                             ->visibility('public')
                             ->imageEditor()
+                            ->openable()
+                            ->downloadable()
                             ->dehydrated(false)
                             ->helperText('Ambil foto saat berdiskusi atau bersama PIC customer.')
                             ->columnSpan(1),

@@ -15,7 +15,7 @@
                     </span>
                     @if($locationPhoto)
                         <a
-                            href="{{ asset('storage/' . $locationPhoto->file_url) }}"
+                            href="{{ $locationPhoto->url }}"
                             target="_blank"
                             class="text-xs font-medium text-teal-600 hover:text-teal-800 dark:text-teal-400 inline-flex items-center gap-1"
                         >
@@ -27,7 +27,7 @@
                 @if($locationPhoto)
                     <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-800 aspect-video flex items-center justify-center">
                         <img
-                            src="{{ asset('storage/' . $locationPhoto->file_url) }}"
+                            src="{{ $locationPhoto->url }}"
                             alt="Foto Lokasi Kunjungan"
                             class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                         />
@@ -52,7 +52,7 @@
                     </span>
                     @if($picPhoto)
                         <a
-                            href="{{ asset('storage/' . $picPhoto->file_url) }}"
+                            href="{{ $picPhoto->url }}"
                             target="_blank"
                             class="text-xs font-medium text-teal-600 hover:text-teal-800 dark:text-teal-400 inline-flex items-center gap-1"
                         >
@@ -64,7 +64,7 @@
                 @if($picPhoto)
                     <div class="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-800 aspect-video flex items-center justify-center">
                         <img
-                            src="{{ asset('storage/' . $picPhoto->file_url) }}"
+                            src="{{ $picPhoto->url }}"
                             alt="Foto Bersama PIC"
                             class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                         />

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class ReportPhoto extends Model
 {
@@ -27,5 +28,12 @@ class ReportPhoto extends Model
     public function visitReport(): BelongsTo
     {
         return $this->belongsTo(VisitReport::class);
+    }
+
+    public function getUrlAttribute(): ?string
+    {
+        return $this->file_url
+            ? Storage::disk('public')->url($this->file_url)
+            : null;
     }
 }
