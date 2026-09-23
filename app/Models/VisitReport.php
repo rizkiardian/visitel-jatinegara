@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class VisitReport extends Model
 {
@@ -24,6 +25,9 @@ class VisitReport extends Model
         'action_plan',
         'voc',
         'visit_type',
+        'communication_channel',
+        'activity_topic',
+        'document_file_url',
         'visit_date',
         'visit_time',
         'validation_status',
@@ -36,6 +40,7 @@ class VisitReport extends Model
         'visit_date' => 'date',
         'validated_at' => 'datetime',
         'estimated_value' => 'decimal:2',
+        'document_file_url' => 'array',
     ];
 
     public function employee(): BelongsTo
@@ -81,5 +86,47 @@ class VisitReport extends Model
     public function photos(): HasMany
     {
         return $this->hasMany(ReportPhoto::class);
+    }
+
+    public function getDocumentUrlAttribute(): ?string
+    {
+        $urls = $this->document_urls;
+        return $urls[0]['url'] ?? null;
+    }
+
+    /**
+     * @return array<int, array{name: string, caption: ?string, path: string, url: string, is_image: bool, is_pdf: bool}>
+     */
+    public function getDocumentUrlsAttribute(): array
+    {
+        if (empty($this->document_file_url)) {
+            return [];
+        }
+
+        $items = is_array($this->document_file_url)
+            ? $this->document_file_url
+            : [$this->document_file_url];
+
+        $results = [];
+        foreach ($items as $item) {
+            $filePath = is_array($item) ? ($item['file'] ?? null) : $item;
+            $caption = is_array($item) ? ($item['caption'] ?? null) : null;
+
+            if (empty($filePath) || !is_string($filePath)) {
+                continue;
+            }
+
+            $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+            $results[] = [
+                'name' => basename($filePath),
+                'caption' => $caption,
+                'path' => $filePath,
+                'url' => Storage::disk('public')->url($filePath),
+                'is_image' => in_array($ext, ['jpg', 'jpeg', 'png', 'webp']),
+                'is_pdf' => $ext === 'pdf',
+            ];
+        }
+
+        return $results;
     }
 }

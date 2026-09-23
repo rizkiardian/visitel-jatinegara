@@ -66,13 +66,68 @@ class VisitReportResource extends Resource
                             ->label('Account Manager (AM)'),
                         Forms\Components\Select::make('visit_type')
                             ->options([
-                                'Visit' => 'Direct Visit (Kunjungan Langsung)',
-                                'NonVisit' => 'Non-Visit (Call / Online)',
+                                'Visit' => 'Direct Visit (Kunjungan Langsung / Onsite)',
+                                'NonVisit' => 'Non-Visit (Call / Online / Chat / Vicon)',
                             ])
                             ->required()
                             ->default('Visit')
                             ->live()
+                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                if ($state === 'Visit') {
+                                    $set('communication_channel', null);
+                                }
+                                $set('activity_topic', null);
+                            })
                             ->label('Tipe Kunjungan'),
+                        Forms\Components\Select::make('communication_channel')
+                            ->label('Kanal Komunikasi Online')
+                            ->options([
+                                'Chat' => '💬 Chat (WhatsApp / Telegram)',
+                                'Email' => '✉️ Email Resmi',
+                                'Video Conference' => '📹 Video Conference (Zoom / Meet / Teams)',
+                            ])
+                            ->required(fn(Forms\Get $get): bool => $get('visit_type') === 'NonVisit')
+                            ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'NonVisit')
+                            ->live()
+                            ->afterStateUpdated(fn(Forms\Set $set) => $set('activity_topic', null)),
+                        Forms\Components\Select::make('activity_topic')
+                            ->label(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit' ? 'Topik Interaksi Online' : 'Tujuan / Topik Kunjungan Fisik')
+                            ->options(function (Forms\Get $get): array {
+                                if ($get('visit_type') === 'NonVisit') {
+                                    $channel = $get('communication_channel');
+                                    return match ($channel) {
+                                        'Chat' => [
+                                            'Complain Handling' => 'Complain Handling',
+                                            'Diskusi Harga' => 'Diskusi Harga',
+                                            'Diskusi Produk' => 'Diskusi Produk',
+                                            'Pengiriman SPH' => 'Pengiriman SPH',
+                                        ],
+                                        'Email' => [
+                                            'Pengiriman Surat Penawaran Harga (SPH)' => 'Pengiriman Surat Penawaran Harga (SPH)',
+                                        ],
+                                        'Video Conference' => [
+                                            'Meeting Teknis' => 'Meeting Teknis',
+                                            'Meeting Produk' => 'Meeting Produk',
+                                            'Lainnya' => 'Lainnya',
+                                        ],
+                                        default => [],
+                                    };
+                                }
+
+                                return [
+                                    'Tanda Tangan Kontrak' => '📝 Tanda Tangan Kontrak',
+                                    'Penagihan' => '💰 Penagihan',
+                                    'Meeting' => '🤝 Meeting (Tatap Muka)',
+                                    'Pengambilan / Penyerahan Dokumen BASO' => '📑 Pengambilan / Penyerahan Dokumen BASO',
+                                ];
+                            })
+                            ->placeholder(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit' && blank($get('communication_channel')) ? '— Pilih kanal komunikasi di samping dahulu —' : '— Pilih Topik / Tujuan —')
+                            ->required()
+                            ->live()
+                            ->columnSpan([
+                                'default' => 1,
+                                'md' => fn(Forms\Get $get): int => $get('visit_type') === 'NonVisit' ? 1 : 2,
+                            ]),
                         Forms\Components\Select::make('business_customer_id')
                             ->relationship(
                                 name: 'businessCustomer',
@@ -132,7 +187,10 @@ class VisitReportResource extends Resource
                         Forms\Components\TimePicker::make('visit_time')
                             ->default(now()->format('H:i'))
                             ->label('Waktu Kunjungan'),
-                    ])->columns(2),
+                    ])->columns([
+                        'default' => 1,
+                        'md' => 2,
+                    ]),
 
                 Forms\Components\Section::make('Lokasi GPS & Peta Kunjungan')
                     ->description('Konfirmasi posisi koordinat AM secara langsung melalui GPS browser.')
@@ -148,9 +206,10 @@ class VisitReportResource extends Resource
                             ->dehydrated(false),
                     ]),
 
-                Forms\Components\Section::make('Dokumentasi Foto Kunjungan')
-                    ->description('Unggah atau ambil foto langsung saat berada di lokasi kunjungan.')
-                    ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'Visit' || $get('visit_type') === null)
+                Forms\Components\Section::make(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit' ? 'Bukti Aktivitas Interaksi Online' : 'Dokumentasi Foto & Berkas Kunjungan')
+                    ->description(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit'
+                        ? 'Unggah bukti percakapan chat WhatsApp, email penawaran resmi, atau screenshot sesi video conference.'
+                        : 'Unggah foto kehadiran fisik di lokasi dan lampiran berkas dokumen kontrak / BASO jika ada.')
                     ->schema([
                         Forms\Components\FileUpload::make('photo_location')
                             ->label('Foto Lokasi / Depan Gedung')
@@ -162,6 +221,7 @@ class VisitReportResource extends Resource
                             ->openable()
                             ->downloadable()
                             ->dehydrated(false)
+                            ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'Visit' || $get('visit_type') === null)
                             ->helperText('Ambil foto gedung, gerbang, atau papan nama kantor customer.')
                             ->columnSpan(1),
                         Forms\Components\FileUpload::make('photo_pic')
@@ -174,9 +234,45 @@ class VisitReportResource extends Resource
                             ->openable()
                             ->downloadable()
                             ->dehydrated(false)
+                            ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'Visit' || $get('visit_type') === null)
                             ->helperText('Ambil foto saat berdiskusi atau bersama PIC customer.')
                             ->columnSpan(1),
-                    ])->columns(2),
+                        Forms\Components\Repeater::make('document_file_url')
+                            ->label(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit' ? 'Bukti Digital Aktivitas Online (Screenshot Chat / Email / SPH / Vicon)' : 'Lampiran Dokumen Fisik (Kontrak / BASO / Tanda Terima)')
+                            ->schema([
+                                Forms\Components\FileUpload::make('file')
+                                    ->label('Unggah Berkas / Dokumen')
+                                    ->disk('public')
+                                    ->directory('visit-documents')
+                                    ->visibility('public')
+                                    ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                                    ->openable()
+                                    ->downloadable()
+                                    ->required()
+                                    ->helperText('Format: PDF, JPG, PNG, WEBP (Maks 10MB)'),
+                                Forms\Components\TextInput::make('caption')
+                                    ->label('Keterangan Dokumen (Opsional)')
+                                    ->placeholder('Misal: Lembar TTD Kontrak, Screenshot Chat WA, dll')
+                                    ->maxLength(150),
+                            ])
+                            ->columns([
+                                'default' => 1,
+                                'md' => 2,
+                            ])
+                            ->addActionLabel('+ Tambah Berkas Dokumen')
+                            ->reorderable()
+                            ->collapsible()
+                            ->defaultItems(0)
+                            ->itemLabel(fn(array $state): ?string => !empty($state['caption']) ? $state['caption'] : (!empty($state['file']) ? basename($state['file']) : 'Berkas Baru'))
+                            ->columnSpanFull()
+                            ->helperText(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit'
+                                ? 'Klik "+ Tambah Berkas Dokumen" untuk menambah bukti digital (screenshot WA, PDF proposal SPH, atau notulensi virtual meeting).'
+                                : 'Klik "+ Tambah Berkas Dokumen" untuk menambah lampiran fisik (scan TTD kontrak, lembar BASO, faktur/tanda terima).'
+                            ),
+                    ])->columns([
+                        'default' => 1,
+                        'md' => 2,
+                    ]),
 
                 Forms\Components\Section::make('Funnel Penjualan & Layanan')
                     ->description('Katalog layanan dan klasifikasi funnel bisnis Telkom.')
@@ -236,10 +332,17 @@ class VisitReportResource extends Resource
                                 )
                             )
                             ->visible(fn(Forms\Get $get): bool => filled($get('service_category_id')))
-                            ->columns(4)
+                            ->columns([
+                                'default' => 1,
+                                'sm' => 2,
+                                'md' => 4,
+                            ])
                             ->columnSpanFull()
                             ->label('Layanan Ditawarkan / Terkait'),
-                    ])->columns(2),
+                    ])->columns([
+                        'default' => 1,
+                        'md' => 2,
+                    ]),
 
                 Forms\Components\Section::make('Catatan Aktivitas & Voice of Customer')
                     ->schema([
@@ -276,7 +379,10 @@ class VisitReportResource extends Resource
                             ->rows(2)
                             ->label('Catatan Validasi')
                             ->columnSpanFull(),
-                    ])->columns(2),
+                    ])->columns([
+                        'default' => 1,
+                        'md' => 2,
+                    ]),
             ]);
     }
 
@@ -293,7 +399,19 @@ class VisitReportResource extends Resource
                         Infolists\Components\TextEntry::make('visit_type')
                             ->label('Tipe Kunjungan')
                             ->badge()
-                            ->color(fn(string $state): string => $state === 'Visit' ? 'primary' : 'gray'),
+                            ->color(fn(string $state): string => $state === 'Visit' ? 'primary' : 'gray')
+                            ->formatStateUsing(fn(string $state): string => $state === 'Visit' ? 'Direct Visit (Onsite)' : 'Non-Visit (Online)'),
+                        Infolists\Components\TextEntry::make('communication_channel')
+                            ->label('Kanal Komunikasi')
+                            ->badge()
+                            ->color('info')
+                            ->icon('heroicon-m-chat-bubble-left-right')
+                            ->visible(fn(VisitReport $record): bool => $record->visit_type === 'NonVisit' && filled($record->communication_channel)),
+                        Infolists\Components\TextEntry::make('activity_topic')
+                            ->label(fn(VisitReport $record): string => $record->visit_type === 'NonVisit' ? 'Topik Interaksi Online' : 'Tujuan Kunjungan Fisik')
+                            ->badge()
+                            ->color('success')
+                            ->placeholder('-'),
                         Infolists\Components\TextEntry::make('businessCustomer.name')
                             ->label('Nama Customer (BC)')
                             ->icon('heroicon-m-building-office-2'),
@@ -315,19 +433,32 @@ class VisitReportResource extends Resource
                             ->label('Waktu Kunjungan')
                             ->time('H:i')
                             ->suffix(' WIB'),
-                    ])->columns(2),
+                    ])->columns([
+                        'default' => 1,
+                        'md' => 2,
+                    ]),
 
                 Infolists\Components\Section::make('Lokasi GPS & Peta Kunjungan')
+                    ->visible(fn(VisitReport $record): bool => $record->visit_type === 'Visit' || $record->visit_type === null)
                     ->schema([
                         Infolists\Components\ViewEntry::make('gps_location')
                             ->view('filament.infolists.components.gps-location-view')
                             ->columnSpanFull(),
                     ]),
 
-                Infolists\Components\Section::make('Dokumentasi Foto Kunjungan')
+                Infolists\Components\Section::make('Dokumentasi Foto Fisik Kunjungan')
+                    ->visible(fn(VisitReport $record): bool => $record->visit_type === 'Visit' || $record->visit_type === null)
                     ->schema([
                         Infolists\Components\ViewEntry::make('visit_photos')
                             ->view('filament.infolists.components.visit-photos-view')
+                            ->columnSpanFull(),
+                    ]),
+
+                Infolists\Components\Section::make(fn(VisitReport $record): string => $record->visit_type === 'NonVisit' ? 'Bukti Aktivitas Interaksi Online' : 'Lampiran Dokumen Fisik (Kontrak / BASO / Tanda Terima)')
+                    ->visible(fn(VisitReport $record): bool => !empty($record->document_file_url))
+                    ->schema([
+                        Infolists\Components\ViewEntry::make('document_files')
+                            ->view('filament.infolists.components.visit-documents-view')
                             ->columnSpanFull(),
                     ]),
 
@@ -350,7 +481,10 @@ class VisitReportResource extends Resource
                             ->badge()
                             ->separator(', ')
                             ->columnSpanFull(),
-                    ])->columns(2),
+                    ])->columns([
+                        'default' => 1,
+                        'md' => 2,
+                    ]),
 
                 Infolists\Components\Section::make('Catatan Aktivitas & Voice of Customer')
                     ->schema([
@@ -390,7 +524,11 @@ class VisitReportResource extends Resource
                             ->label('Catatan Validasi')
                             ->placeholder('-')
                             ->columnSpanFull(),
-                    ])->columns(3),
+                    ])->columns([
+                        'default' => 1,
+                        'sm' => 2,
+                        'md' => 3,
+                    ]),
             ]);
     }
 
@@ -429,7 +567,11 @@ class VisitReportResource extends Resource
                 Tables\Columns\TextColumn::make('visit_type')
                     ->badge()
                     ->color(fn(string $state): string => $state === 'Visit' ? 'primary' : 'gray')
-                    ->label('Tipe'),
+                    ->formatStateUsing(fn(string $state): string => $state === 'Visit' ? 'Direct' : 'Non-Visit')
+                    ->description(fn(VisitReport $record): ?string => $record->activity_topic
+                        ? ($record->communication_channel ? $record->communication_channel . ' • ' . $record->activity_topic : $record->activity_topic)
+                        : null)
+                    ->label('Tipe & Topik'),
                 Tables\Columns\IconColumn::make('locations_count')
                     ->counts('locations')
                     ->label('GPS')
@@ -446,6 +588,16 @@ class VisitReportResource extends Resource
                     ->falseIcon('heroicon-o-minus')
                     ->trueColor('success')
                     ->tooltip(fn(VisitReport $record) => $record->photos()->count() . ' Foto Terlampir'),
+                Tables\Columns\IconColumn::make('document_file_url')
+                    ->label('Berkas')
+                    ->boolean()
+                    ->trueIcon('heroicon-s-document-check')
+                    ->falseIcon('heroicon-o-minus')
+                    ->trueColor('warning')
+                    ->tooltip(function (VisitReport $record): string {
+                        $count = is_array($record->document_file_url) ? count($record->document_file_url) : (!empty($record->document_file_url) ? 1 : 0);
+                        return $count > 0 ? "{$count} Berkas Terlampir" : 'Tanpa Lampiran Berkas';
+                    }),
                 Tables\Columns\TextColumn::make('services.name')
                     ->badge()
                     ->separator(',')
@@ -483,10 +635,17 @@ class VisitReportResource extends Resource
                     ->label('Account Manager'),
                 Tables\Filters\SelectFilter::make('visit_type')
                     ->options([
-                        'Visit' => 'Visit',
-                        'NonVisit' => 'Non-Visit',
+                        'Visit' => 'Direct Visit (Onsite)',
+                        'NonVisit' => 'Non-Visit (Online)',
                     ])
                     ->label('Tipe Kunjungan'),
+                Tables\Filters\SelectFilter::make('communication_channel')
+                    ->options([
+                        'Chat' => 'Chat (WhatsApp / Telegram)',
+                        'Email' => 'Email Resmi',
+                        'Video Conference' => 'Video Conference',
+                    ])
+                    ->label('Kanal Komunikasi'),
             ])
             ->actions([
                 Tables\Actions\Action::make('quickValidate')
