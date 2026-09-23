@@ -26,7 +26,11 @@
                     try {
                         this.map = L.map(container, {
                             zoomControl: true,
-                            attributionControl: true
+                            attributionControl: true,
+                            dragging: false,
+                            scrollWheelZoom: true,
+                            touchZoom: true,
+                            doubleClickZoom: true
                         }).setView([this.lat, this.lng], 16);
 
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -34,7 +38,7 @@
                             attribution: '&copy; OpenStreetMap contributors'
                         }).addTo(this.map);
 
-                        L.marker([this.lat, this.lng])
+                        L.marker([this.lat, this.lng], { draggable: false })
                             .addTo(this.map)
                             .bindPopup('<b>Titik Kunjungan AM</b><br>{{ addslashes($record->businessCustomer?->name ?? 'Customer') }}')
                             .openPopup();

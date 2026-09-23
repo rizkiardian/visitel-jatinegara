@@ -70,7 +70,7 @@
             <svg :class="{'animate-spin': status === 'loading'}" style="width: 16px; height: 16px; color: #0d9488;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
             </svg>
-            <span x-text="status === 'loading' ? 'Mencari...' : 'Perbarui Lokasi'"></span>
+            <span x-text="status === 'loading' ? 'Mencari...' : (lat && lng ? 'Perbarui Lokasi' : 'Ambil Lokasi GPS')"></span>
         </button>
     </div>
 
@@ -78,9 +78,10 @@
     <div wire:ignore class="relative rounded-2xl overflow-hidden border border-gray-300 dark:border-gray-700 shadow-sm" style="min-height: 320px; position: relative;">
         <div x-ref="mapContainer" style="width: 100%; height: 320px; min-height: 320px; z-index: 1; background: #e5e7eb;"></div>
 
-        <!-- Help overlay pill -->
-        <div style="position: absolute; bottom: 12px; left: 12px; z-index: 20; background: rgba(255, 255, 255, 0.95); padding: 4px 10px; border-radius: 8px; border: 1px solid #e5e7eb; font-size: 11px; color: #374151; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-            💡 Pin dapat digeser atau klik pada peta untuk menyesuaikan titik
+        <!-- Locked GPS overlay pill -->
+        <div style="position: absolute; bottom: 12px; left: 12px; z-index: 20; background: rgba(255, 255, 255, 0.95); padding: 5px 12px; border-radius: 8px; border: 1px solid #d1fae5; font-size: 11px; color: #065f46; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+            <span>🔒</span>
+            <span>Titik GPS terkunci otomatis (Hanya dapat dizoom, tidak bisa digeser)</span>
         </div>
     </div>
 
@@ -114,7 +115,7 @@
             accuracy: config.accuracy,
             status: 'idle',
             statusTitle: 'Belum Terdeteksi',
-            statusSubtitle: 'Klik tombol Perbarui Lokasi untuk merekam titik GPS AM',
+            statusSubtitle: 'Klik tombol di samping untuk merekam titik GPS AM',
             map: null,
             marker: null,
             circle: null,
@@ -173,7 +174,11 @@
                 try {
                     this.map = L.map(container, {
                         zoomControl: true,
-                        attributionControl: true
+                        attributionControl: true,
+                        dragging: false,
+                        scrollWheelZoom: true,
+                        touchZoom: true,
+                        doubleClickZoom: true
                     }).setView([defaultLat, defaultLng], zoomLevel);
 
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -181,16 +186,9 @@
                         attribution: '&copy; OpenStreetMap contributors'
                     }).addTo(this.map);
 
-                    this.updateMarker(defaultLat, defaultLng, this.accuracy);
-
-                    this.map.on('click', (e) => {
-                        this.lat = e.latlng.lat.toFixed(7);
-                        this.lng = e.latlng.lng.toFixed(7);
-                        this.status = 'success';
-                        this.statusTitle = 'Titik Dipilih Manual';
-                        this.statusSubtitle = 'Koordinat disesuaikan dari peta';
-                        this.updateMarker(e.latlng.lat, e.latlng.lng, null);
-                    });
+                    if (this.lat && this.lng) {
+                        this.updateMarker(defaultLat, defaultLng, this.accuracy);
+                    }
 
                     setTimeout(() => {
                         if (this.map) this.map.invalidateSize();
@@ -212,19 +210,9 @@
                 if (this.marker) {
                     this.marker.setLatLng([lat, lng]);
                 } else {
-                    this.marker = L.marker([lat, lng], { draggable: true }).addTo(this.map);
-                    this.marker.on('dragend', (e) => {
-                        const pos = e.target.getLatLng();
-                        this.lat = pos.lat.toFixed(7);
-                        this.lng = pos.lng.toFixed(7);
-                        this.status = 'success';
-                        this.statusTitle = 'Titik Digeser Manual';
-                        this.statusSubtitle = 'Koordinat disesuaikan dari pin marker';
-                        if (this.circle) {
-                            this.circle.setLatLng(pos);
-                        }
-                    });
+                    this.marker = L.marker([lat, lng], { draggable: false }).addTo(this.map);
                 }
+
 
                 if (accuracyMeters && accuracyMeters > 0) {
                     if (this.circle) {
