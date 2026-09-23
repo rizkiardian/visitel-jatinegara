@@ -62,6 +62,11 @@ class Employee extends Model
         return $this->hasMany(Attendance::class);
     }
 
+    public function businessCustomers(): HasMany
+    {
+        return $this->hasMany(BusinessCustomer::class, 'employee_id');
+    }
+
     public function user(): HasOne
     {
         return $this->hasOne(User::class);

@@ -53,6 +53,16 @@ class VisitReportResource extends Resource
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->live()
+                            ->default(fn () => auth()->user()?->employee_id)
+                            ->disabled(fn () => auth()->user()?->role === 'AM' && auth()->user()?->employee_id)
+                            ->dehydrated()
+                            ->afterStateUpdated(function (Forms\Set $set) {
+                                $set('business_customer_id', null);
+                                $set('nipnas', null);
+                                $set('bc_status', null);
+                                $set('customer_pic_name', null);
+                            })
                             ->label('Account Manager (AM)'),
                         Forms\Components\Select::make('visit_type')
                             ->options([
@@ -64,7 +74,16 @@ class VisitReportResource extends Resource
                             ->live()
                             ->label('Tipe Kunjungan'),
                         Forms\Components\Select::make('business_customer_id')
-                            ->relationship('businessCustomer', 'name')
+                            ->relationship(
+                                name: 'businessCustomer',
+                                titleAttribute: 'name',
+                                modifyQueryUsing: function (Builder $query, Forms\Get $get) {
+                                    $employeeId = $get('employee_id') ?? auth()->user()?->employee_id;
+                                    if ($employeeId) {
+                                        $query->where('employee_id', $employeeId);
+                                    }
+                                }
+                            )
                             ->searchable()
                             ->preload()
                             ->required()
@@ -477,5 +496,16 @@ class VisitReportResource extends Resource
             'create' => Pages\CreateVisitReport::route('/create'),
             'edit' => Pages\EditVisitReport::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->check() && auth()->user()->role === 'AM' && auth()->user()->employee_id) {
+            $query->where('employee_id', auth()->user()->employee_id);
+        }
+
+        return $query;
     }
 }

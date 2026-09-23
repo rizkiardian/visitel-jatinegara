@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class BusinessCustomerResource extends Resource
 {
@@ -37,6 +38,11 @@ class BusinessCustomerResource extends Resource
                             ->label('Nama Perusahaan / BC')
                             ->placeholder('PT Telkom Indonesia')
                             ->columnSpanFull(),
+                        Forms\Components\Select::make('employee_id')
+                            ->relationship('employee', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->label('Account Manager (AM) PIC'),
                         Forms\Components\TextInput::make('nipnas')
                             ->label('NIPNAS')
                             ->placeholder('Nomor NIPNAS Telkom'),
@@ -97,6 +103,12 @@ class BusinessCustomerResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->label('Nama Pelanggan (BC)'),
+                Tables\Columns\TextColumn::make('employee.name')
+                    ->label('Account Manager (AM)')
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->color('info'),
                 Tables\Columns\TextColumn::make('nipnas')
                     ->searchable()
                     ->label('NIPNAS')
@@ -128,6 +140,11 @@ class BusinessCustomerResource extends Resource
             ])
             ->defaultSort('name', 'asc')
             ->filters([
+                Tables\Filters\SelectFilter::make('employee_id')
+                    ->relationship('employee', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->label('Account Manager'),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'New' => 'Baru (New)',
@@ -146,6 +163,17 @@ class BusinessCustomerResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (auth()->check() && auth()->user()->role === 'AM' && auth()->user()->employee_id) {
+            $query->where('employee_id', auth()->user()->employee_id);
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array

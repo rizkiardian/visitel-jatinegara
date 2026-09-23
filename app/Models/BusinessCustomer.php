@@ -15,6 +15,7 @@ class BusinessCustomer extends Model
         'name',
         'nipnas',
         'status',
+        'employee_id',
         'telda_id',
         'service_id',
         'default_pic_name',
@@ -24,6 +25,11 @@ class BusinessCustomer extends Model
         'longitude',
         'segment',
     ];
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
+    }
 
     public function telda(): BelongsTo
     {
