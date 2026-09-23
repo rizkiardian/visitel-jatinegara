@@ -196,8 +196,46 @@ class VisitReportResource extends Resource
                             ->prefix('Rp')
                             ->label('Estimasi Nilai Transaksi (Rp)')
                             ->placeholder('0'),
+
+                        Forms\Components\Select::make('service_category_id')
+                            ->label('Kategori Layanan')
+                            ->options(
+                                \App\Models\ServiceCategory::pluck('name', 'id')
+                                    ->toArray() + ['all' => 'Semua Kategori (Tampilkan Semua)']
+                            )
+                            ->placeholder('-- Pilih Kategori Layanan Terlebih Dahulu --')
+                            ->helperText('Pilih kategori terlebih dahulu agar daftar layanan yang relevan muncul.')
+                            ->live()
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function (Forms\Components\Select $component, ?VisitReport $record) {
+                                if ($record && $record->exists) {
+                                    $catIds = $record->services()->pluck('service_category_id')->unique()->values();
+                                    if ($catIds->count() > 1) {
+                                        $component->state('all');
+                                    } elseif ($catIds->count() === 1) {
+                                        $component->state((string) $catIds->first());
+                                    }
+                                }
+                            })
+                            ->columnSpanFull(),
+
+                        Forms\Components\Placeholder::make('services_empty_hint')
+                            ->label('Layanan Ditawarkan / Terkait')
+                            ->content('Pilih Kategori Layanan di atas terlebih dahulu untuk menampilkan daftar opsi layanan.')
+                            ->visible(fn(Forms\Get $get): bool => blank($get('service_category_id')))
+                            ->columnSpanFull(),
+
                         Forms\Components\CheckboxList::make('services')
-                            ->relationship('services', 'name')
+                            ->relationship(
+                                name: 'services',
+                                titleAttribute: 'name',
+                                modifyQueryUsing: fn($query, Forms\Get $get) => $query->when(
+                                    $get('service_category_id') && $get('service_category_id') !== 'all',
+                                    fn($q) => $q->where('service_category_id', $get('service_category_id')),
+                                    fn($q) => $get('service_category_id') === 'all' ? $q : $q->whereRaw('1 = 0')
+                                )
+                            )
+                            ->visible(fn(Forms\Get $get): bool => filled($get('service_category_id')))
                             ->columns(4)
                             ->columnSpanFull()
                             ->label('Layanan Ditawarkan / Terkait'),
