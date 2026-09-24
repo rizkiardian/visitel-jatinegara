@@ -259,11 +259,18 @@ class VisitReportResource extends Resource
                                     ->modalHeading('Tambah Business Customer (BC) Baru')
                                     ->modalSubmitActionLabel('Simpan BC Baru')
                                     ->modalWidth('3xl')
+                                    ->color('primary')
+                                    ->icon('heroicon-m-plus-circle')
+                                    ->tooltip('Tambah BC Baru')
+                                    ->extraAttributes([
+                                        'class' => 'text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 dark:bg-primary-950 dark:hover:bg-primary-900 rounded-lg p-1 transition shadow-sm',
+                                    ])
                                     ->fillForm(fn (): array => [
                                         'status' => 'New',
                                         'employee_id' => $get('employee_id') ?? auth()->user()?->employee_id,
                                     ]);
                             })
+                            ->helperText('Pelanggan belum terdaftar? Klik tombol (+) di sisi kanan kolom untuk membuat BC baru.')
                             ->afterStateUpdated(function ($state, Forms\Set $set) {
                                 if ($customer = BusinessCustomer::find($state)) {
                                     $set('nipnas', $customer->nipnas ?? '-');
