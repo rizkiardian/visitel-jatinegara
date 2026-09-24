@@ -27,68 +27,72 @@ class BusinessCustomerResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function getFormSchema(): array
+    {
+        return [
+            Forms\Components\Section::make('Identitas Pelanggan')
+                ->schema([
+                    Forms\Components\TextInput::make('name')
+                        ->required()
+                        ->label('Nama Perusahaan / BC')
+                        ->placeholder('PT Telkom Indonesia')
+                        ->columnSpanFull(),
+                    Forms\Components\Select::make('employee_id')
+                        ->relationship('employee', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->label('Account Manager (AM) PIC'),
+                    Forms\Components\TextInput::make('nipnas')
+                        ->label('NIPNAS')
+                        ->placeholder('Nomor NIPNAS Telkom'),
+                    Forms\Components\Select::make('status')
+                        ->options([
+                            'New' => 'Baru (New)',
+                            'Existing' => 'Eksisting (Existing)',
+                        ])
+                        ->required()
+                        ->default('New')
+                        ->label('Status Pelanggan'),
+                    Forms\Components\Select::make('telda_id')
+                        ->relationship('telda', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->label('Wilayah Kerja (Telda)'),
+                    Forms\Components\Select::make('service_id')
+                        ->relationship('service', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->label('Layanan Utama'),
+                    Forms\Components\TextInput::make('segment')
+                        ->label('Segmen Pelanggan')
+                        ->placeholder('Enterprise / SME / Government'),
+                ])->columns(2),
+
+            Forms\Components\Section::make('Kontak & Lokasi')
+                ->schema([
+                    Forms\Components\TextInput::make('default_pic_name')
+                        ->label('Nama PIC Utama'),
+                    Forms\Components\TextInput::make('default_pic_contact')
+                        ->label('Kontak PIC (No. Telp / Email)'),
+                    Forms\Components\Textarea::make('address')
+                        ->rows(2)
+                        ->label('Alamat Kantor BC')
+                        ->columnSpanFull(),
+                    Forms\Components\TextInput::make('latitude')
+                        ->numeric()
+                        ->label('Latitude GPS')
+                        ->placeholder('-6.215000'),
+                    Forms\Components\TextInput::make('longitude')
+                        ->numeric()
+                        ->label('Longitude GPS')
+                        ->placeholder('106.870000'),
+                ])->columns(2),
+        ];
+    }
+
     public static function form(Form $form): Form
     {
-        return $form
-            ->schema([
-                Forms\Components\Section::make('Identitas Pelanggan')
-                    ->schema([
-                        Forms\Components\TextInput::make('name')
-                            ->required()
-                            ->label('Nama Perusahaan / BC')
-                            ->placeholder('PT Telkom Indonesia')
-                            ->columnSpanFull(),
-                        Forms\Components\Select::make('employee_id')
-                            ->relationship('employee', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->label('Account Manager (AM) PIC'),
-                        Forms\Components\TextInput::make('nipnas')
-                            ->label('NIPNAS')
-                            ->placeholder('Nomor NIPNAS Telkom'),
-                        Forms\Components\Select::make('status')
-                            ->options([
-                                'New' => 'Baru (New)',
-                                'Existing' => 'Eksisting (Existing)',
-                            ])
-                            ->required()
-                            ->default('New')
-                            ->label('Status Pelanggan'),
-                        Forms\Components\Select::make('telda_id')
-                            ->relationship('telda', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->label('Wilayah Kerja (Telda)'),
-                        Forms\Components\Select::make('service_id')
-                            ->relationship('service', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->label('Layanan Utama'),
-                        Forms\Components\TextInput::make('segment')
-                            ->label('Segmen Pelanggan')
-                            ->placeholder('Enterprise / SME / Government'),
-                    ])->columns(2),
-
-                Forms\Components\Section::make('Kontak & Lokasi')
-                    ->schema([
-                        Forms\Components\TextInput::make('default_pic_name')
-                            ->label('Nama PIC Utama'),
-                        Forms\Components\TextInput::make('default_pic_contact')
-                            ->label('Kontak PIC (No. Telp / Email)'),
-                        Forms\Components\Textarea::make('address')
-                            ->rows(2)
-                            ->label('Alamat Kantor BC')
-                            ->columnSpanFull(),
-                        Forms\Components\TextInput::make('latitude')
-                            ->numeric()
-                            ->label('Latitude GPS')
-                            ->placeholder('-6.215000'),
-                        Forms\Components\TextInput::make('longitude')
-                            ->numeric()
-                            ->label('Longitude GPS')
-                            ->placeholder('106.870000'),
-                    ])->columns(2),
-            ]);
+        return $form->schema(static::getFormSchema());
     }
 
     public static function table(Table $table): Table

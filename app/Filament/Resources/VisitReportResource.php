@@ -237,10 +237,15 @@ class VisitReportResource extends Resource
                             ->relationship(
                                 name: 'businessCustomer',
                                 titleAttribute: 'name',
-                                modifyQueryUsing: function (Builder $query, Forms\Get $get) {
+                                modifyQueryUsing: function (Builder $query, Forms\Get $get, ?VisitReport $record) {
                                     $employeeId = $get('employee_id') ?? auth()->user()?->employee_id;
                                     if ($employeeId) {
-                                        $query->where('employee_id', $employeeId);
+                                        $query->where(function ($q) use ($employeeId, $record) {
+                                            $q->where('employee_id', $employeeId);
+                                            if ($record?->business_customer_id) {
+                                                $q->orWhere('id', $record->business_customer_id);
+                                            }
+                                        });
                                     }
                                 }
                             )
@@ -248,6 +253,17 @@ class VisitReportResource extends Resource
                             ->preload()
                             ->required()
                             ->live()
+                            ->createOptionForm(BusinessCustomerResource::getFormSchema())
+                            ->createOptionAction(function (Forms\Components\Actions\Action $action, Forms\Get $get) {
+                                return $action
+                                    ->modalHeading('Tambah Business Customer (BC) Baru')
+                                    ->modalSubmitActionLabel('Simpan BC Baru')
+                                    ->modalWidth('3xl')
+                                    ->fillForm(fn (): array => [
+                                        'status' => 'New',
+                                        'employee_id' => $get('employee_id') ?? auth()->user()?->employee_id,
+                                    ]);
+                            })
                             ->afterStateUpdated(function ($state, Forms\Set $set) {
                                 if ($customer = BusinessCustomer::find($state)) {
                                     $set('nipnas', $customer->nipnas ?? '-');
