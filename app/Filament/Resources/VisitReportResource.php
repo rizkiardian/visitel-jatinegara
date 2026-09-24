@@ -265,10 +265,25 @@ class VisitReportResource extends Resource
                                     ->extraAttributes([
                                         'class' => 'text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 dark:bg-primary-950 dark:hover:bg-primary-900 rounded-lg p-1 transition shadow-sm',
                                     ])
-                                    ->fillForm(fn (): array => [
-                                        'status' => 'New',
-                                        'employee_id' => $get('employee_id') ?? auth()->user()?->employee_id,
-                                    ]);
+                                    ->fillForm(function (Forms\Get $get): array {
+                                        $empId = (auth()->user()?->role !== 'Admin')
+                                            ? auth()->user()?->employee_id
+                                            : ($get('employee_id') ?? auth()->user()?->employee_id);
+                                        $emp = $empId ? \App\Models\Employee::find($empId) : null;
+
+                                        return [
+                                            'status' => 'New',
+                                            'employee_id' => $empId,
+                                            'telda_id' => $emp?->telda_id,
+                                        ];
+                                    })
+                                    ->mutateFormDataUsing(function (array $data): array {
+                                        if (auth()->user()?->role !== 'Admin' && auth()->user()?->employee_id) {
+                                            $data['employee_id'] = auth()->user()->employee_id;
+                                        }
+
+                                        return $data;
+                                    });
                             })
                             ->helperText('Pelanggan belum terdaftar? Klik tombol (+) di sisi kanan kolom untuk membuat BC baru.')
                             ->afterStateUpdated(function ($state, Forms\Set $set) {

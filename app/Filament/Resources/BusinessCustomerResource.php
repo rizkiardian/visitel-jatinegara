@@ -41,6 +41,16 @@ class BusinessCustomerResource extends Resource
                         ->relationship('employee', 'name')
                         ->searchable()
                         ->preload()
+                        ->default(fn () => auth()->user()?->employee_id)
+                        ->disabled(fn () => auth()->user()?->role !== 'Admin')
+                        ->dehydrated()
+                        ->required()
+                        ->live()
+                        ->afterStateUpdated(function ($state, Forms\Set $set) {
+                            if ($state && ($emp = \App\Models\Employee::find($state))) {
+                                $set('telda_id', $emp->telda_id);
+                            }
+                        })
                         ->label('Account Manager (AM) PIC'),
                     Forms\Components\TextInput::make('nipnas')
                         ->label('NIPNAS')
@@ -57,15 +67,64 @@ class BusinessCustomerResource extends Resource
                         ->relationship('telda', 'name')
                         ->searchable()
                         ->preload()
+                        ->default(function (Forms\Get $get) {
+                            $empId = $get('employee_id') ?? auth()->user()?->employee_id;
+                            return $empId ? \App\Models\Employee::find($empId)?->telda_id : null;
+                        })
                         ->label('Wilayah Kerja (Telda)'),
                     Forms\Components\Select::make('service_id')
                         ->relationship('service', 'name')
                         ->searchable()
                         ->preload()
                         ->label('Layanan Utama'),
-                    Forms\Components\TextInput::make('segment')
-                        ->label('Segmen Pelanggan')
-                        ->placeholder('Enterprise / SME / Government'),
+                    Forms\Components\Select::make('segment')
+                        ->options([
+                            'Enterprise' => [
+                                'Energi' => 'Energi',
+                                'Oil & Gas' => 'Oil & Gas',
+                                'Manufaktur' => 'Manufaktur',
+                                'Multifinance' => 'Multifinance',
+                                'Keuangan' => 'Keuangan / Perbankan',
+                                'Property' => 'Property & Real Estate',
+                                'Logistik' => 'Logistik',
+                                'Ekspedisi' => 'Ekspedisi',
+                                'Healthcare' => 'Healthcare (Kesehatan/RS)',
+                                'Media & Komunikasi' => 'Media & Komunikasi',
+                                'ISP' => 'ISP / Telekomunikasi',
+                                'Digital IT' => 'Digital & Teknologi IT',
+                                'Hotel' => 'Hospitality & Hotel',
+                                'Retail' => 'Retail',
+                                'Distributor' => 'Distributor',
+                                'F&B & Entertainment' => 'F&B & Entertainment',
+                                'Agri' => 'Agrikultur & Perkebunan',
+                                'Transportasi' => 'Transportasi',
+                            ],
+                            'SME / Indibiz' => [
+                                'Indibiz' => 'Indibiz Umum',
+                                'Indibiz Ruko' => 'Indibiz Ruko',
+                                'Indibiz Manufaktur' => 'Indibiz Manufaktur',
+                                'Indibiz Building' => 'Indibiz Building / Gedung',
+                                'Indibiz Media & Komunikasi' => 'Indibiz Media & Komunikasi',
+                                'Indibiz Logistik' => 'Indibiz Logistik',
+                                'Indibiz Ekspedisi' => 'Indibiz Ekspedisi',
+                                'Indibiz Healthcare' => 'Indibiz Healthcare',
+                                'Indibiz Edukasi' => 'Indibiz Edukasi',
+                                'Indibiz Property' => 'Indibiz Property',
+                                'Indibiz ISP' => 'Indibiz ISP',
+                                'Ruko' => 'Ruko / Pertokoan',
+                            ],
+                            'Government & Edukasi' => [
+                                'Pemerintahan' => 'Pemerintahan (Government)',
+                                'Sekolah' => 'Pendidikan / Sekolah',
+                                'Yayasan' => 'Yayasan / Sosial',
+                            ],
+                            'Lainnya' => [
+                                'Lainnya' => 'Lainnya',
+                            ],
+                        ])
+                        ->searchable()
+                        ->preload()
+                        ->label('Segmen Pelanggan'),
                 ])->columns(2),
 
             Forms\Components\Section::make('Kontak & Lokasi')
@@ -78,14 +137,6 @@ class BusinessCustomerResource extends Resource
                         ->rows(2)
                         ->label('Alamat Kantor BC')
                         ->columnSpanFull(),
-                    Forms\Components\TextInput::make('latitude')
-                        ->numeric()
-                        ->label('Latitude GPS')
-                        ->placeholder('-6.215000'),
-                    Forms\Components\TextInput::make('longitude')
-                        ->numeric()
-                        ->label('Longitude GPS')
-                        ->placeholder('106.870000'),
                 ])->columns(2),
         ];
     }

@@ -21,8 +21,6 @@ class BusinessCustomer extends Model
         'default_pic_name',
         'default_pic_contact',
         'address',
-        'latitude',
-        'longitude',
         'segment',
     ];
 
