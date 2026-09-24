@@ -84,7 +84,10 @@ class VisitReportResource extends Resource
                             ->required()
                             ->preload()
                             ->live()
-                            ->afterStateUpdated(fn (Forms\Set $set) => $set('activity_type_id', null))
+                            ->afterStateUpdated(function (Forms\Set $set) {
+                                $set('activity_type_id', null);
+                                $set('activity_topic', null);
+                            })
                             ->label('Kategori Aktivitas (Funnel)'),
                         Forms\Components\Select::make('activity_type_id')
                             ->relationship(
@@ -115,6 +118,7 @@ class VisitReportResource extends Resource
                         Forms\Components\Select::make('communication_channel')
                             ->label('Kanal Komunikasi Online')
                             ->options([
+                                'Telepon' => '📞 Telepon / Voice Call',
                                 'Chat' => '💬 Chat (WhatsApp / Telegram)',
                                 'Email' => '✉️ Email Resmi',
                                 'Video Conference' => '📹 Video Conference (Zoom / Meet / Teams)',
@@ -125,29 +129,109 @@ class VisitReportResource extends Resource
                             ->afterStateUpdated(fn(Forms\Set $set) => $set('activity_topic', null)),
                         Forms\Components\Select::make('activity_topic')
                             ->label('Topik Interaksi Online')
-                            ->options(function (Forms\Get $get): array {
+                            ->options(function (Forms\Get $get, ?VisitReport $record): array {
                                 $channel = $get('communication_channel');
-                                return match ($channel) {
+                                $catId = $get('activity_category_id');
+
+                                if (blank($channel) || blank($catId)) {
+                                    return $record?->activity_topic ? [$record->activity_topic => $record->activity_topic] : [];
+                                }
+
+                                $catName = \App\Models\ActivityCategory::find($catId)?->name;
+
+                                $topicMatrix = [
+                                    'Telepon' => [
+                                        'Approaching' => [
+                                            'Cold Calling / Perkenalan Prospek Baru' => '📞 Cold Calling / Perkenalan Prospek Baru',
+                                            'Konfirmasi Jadwal Pertemuan / Janji Temu' => '📅 Konfirmasi Jadwal Pertemuan / Janji Temu',
+                                            'Skrining Kebutuhan & Minat Pelanggan Awal' => '🔍 Skrining Kebutuhan & Minat Pelanggan Awal',
+                                        ],
+                                        'Dealing' => [
+                                            'Follow Up Status Keputusan Penawaran' => '⏳ Follow Up Status Keputusan Penawaran',
+                                            'Klarifikasi Cepat Komponen Harga / Budget' => '💬 Klarifikasi Cepat Komponen Harga / Budget',
+                                            'Konfirmasi Pengiriman Dokumen Kontrak / PKS' => '📑 Konfirmasi Pengiriman Dokumen Kontrak / PKS',
+                                        ],
+                                        'Aftersales' => [
+                                            'Konfirmasi Pembayaran Tagihan (Desk Collection)' => '💰 Konfirmasi Pembayaran Tagihan (Desk Collection)',
+                                            'Konfirmasi Pasca Penanganan Gangguan' => '✅ Konfirmasi Pasca Penanganan Gangguan',
+                                            'Pengecekan Kepuasan Layanan (Customer Courtesy Call)' => '📞 Pengecekan Kepuasan Layanan (Customer Courtesy Call)',
+                                        ],
+                                    ],
                                     'Chat' => [
-                                        'Complain Handling' => 'Complain Handling',
-                                        'Diskusi Harga' => 'Diskusi Harga',
-                                        'Diskusi Produk' => 'Diskusi Produk',
-                                        'Pengiriman SPH' => 'Pengiriman SPH',
+                                        'Approaching' => [
+                                            'Eksplorasi Kebutuhan & Tanya Jawab Produk' => '🔍 Eksplorasi Kebutuhan & Tanya Jawab Produk',
+                                            'Pengiriman Brosur / Ringkasan Penawaran' => '📑 Pengiriman Brosur / Ringkasan Penawaran',
+                                            'Koordinasi Lokasi & Waktu Janji Temu' => '📍 Koordinasi Lokasi & Waktu Janji Temu',
+                                        ],
+                                        'Dealing' => [
+                                            'Diskusi & Negosiasi Harga Cepat' => '💬 Diskusi & Negosiasi Harga Cepat',
+                                            'Konfirmasi Persetujuan Final Penawaran' => '⚡ Konfirmasi Persetujuan Final Penawaran',
+                                            'Update Status Pembuatan Kontrak / PKS' => '📝 Update Status Pembuatan Kontrak / PKS',
+                                        ],
+                                        'Aftersales' => [
+                                            'Pengingat Jatuh Tempo Tagihan (Payment Reminder)' => '⏰ Pengingat Jatuh Tempo Tagihan (Payment Reminder)',
+                                            'Koordinasi Penanganan Keluhan (Complain Handling)' => '🛠️ Koordinasi Penanganan Keluhan (Complain Handling)',
+                                            'Konfirmasi Kebutuhan Perpanjangan Kontrak / Renewal' => '🔄 Konfirmasi Kebutuhan Perpanjangan Kontrak / Renewal',
+                                        ],
                                     ],
                                     'Email' => [
-                                        'Pengiriman Surat Penawaran Harga (SPH)' => 'Pengiriman Surat Penawaran Harga (SPH)',
+                                        'Approaching' => [
+                                            'Pengiriman Company Profile & Portofolio Solusi' => '💼 Pengiriman Company Profile & Portofolio Solusi',
+                                            'Undangan Formal Pertemuan / Audiensi Bisnis' => '✉️ Undangan Formal Pertemuan / Audiensi Bisnis',
+                                            'Formulir Kuesioner Kebutuhan Pelanggan' => '📋 Formulir Kuesioner Kebutuhan Pelanggan',
+                                        ],
+                                        'Dealing' => [
+                                            'Pengiriman Surat Penawaran Harga Resmi (SPH)' => '✉️ Pengiriman Surat Penawaran Harga Resmi (SPH)',
+                                            'Pengiriman Draf Kontrak / PKS untuk Legal Review' => '📝 Pengiriman Draf Kontrak / PKS untuk Legal Review',
+                                            'Pengiriman Berita Acara / Dokumen BASO' => '📑 Pengiriman Berita Acara / Dokumen BASO',
+                                        ],
+                                        'Aftersales' => [
+                                            'Pengiriman Faktur Pajak & Invoice Tagihan' => '🧾 Pengiriman Faktur Pajak & Invoice Tagihan',
+                                            'Surat Tanggapan Resmi Gangguan / Keluhan Pelanggan' => '📩 Surat Tanggapan Resmi Gangguan / Keluhan Pelanggan',
+                                            'Pengiriman Laporan Performa Layanan Bulanan (Monthly SLA)' => '📊 Pengiriman Laporan Performa Layanan Bulanan (Monthly SLA)',
+                                        ],
                                     ],
                                     'Video Conference' => [
-                                        'Meeting Teknis' => 'Meeting Teknis',
-                                        'Meeting Produk' => 'Meeting Produk',
-                                        'Lainnya' => 'Lainnya',
+                                        'Approaching' => [
+                                            'Audiensi Virtual dengan Manajemen / C-Level' => '👔 Audiensi Virtual dengan Manajemen / C-Level',
+                                            'Pengenalan Solusi & Discovery Session' => '💡 Pengenalan Solusi & Discovery Session',
+                                        ],
+                                        'Dealing' => [
+                                            'Presentasi Solusi & Demo Teknis (PoC Virtual)' => '💻 Presentasi Solusi & Demo Teknis (PoC Virtual)',
+                                            'Rapat Negosiasi Komersial / Finalisasi Deal' => '🤝 Rapat Negosiasi Komersial / Finalisasi Deal',
+                                            'Rapat Koordinasi Teknis Proyek (Kick-off Meeting)' => '🚀 Rapat Koordinasi Teknis Proyek (Kick-off Meeting)',
+                                        ],
+                                        'Aftersales' => [
+                                            'Evaluasi Layanan Bulanan & Review SLA' => '📊 Evaluasi Layanan Bulanan & Review SLA',
+                                            'Koordinasi Teknis Pemulihan Gangguan Kompleks' => '🛠️ Koordinasi Teknis Pemulihan Gangguan Kompleks',
+                                            'Diskusi Rencana Upgrade & Pengembangan Layanan (Upselling)' => '📈 Diskusi Rencana Upgrade & Pengembangan Layanan (Upselling)',
+                                        ],
                                     ],
-                                    default => [],
-                                };
+                                ];
+
+                                $topics = $topicMatrix[$channel][$catName] ?? [];
+
+                                if ($record?->activity_topic && !isset($topics[$record->activity_topic])) {
+                                    $topics[$record->activity_topic] = $record->activity_topic;
+                                }
+
+                                return $topics;
                             })
-                            ->placeholder(fn(Forms\Get $get): string => blank($get('communication_channel')) ? '— Pilih kanal komunikasi di samping dahulu —' : '— Pilih Topik Interaksi —')
+                            ->placeholder(function (Forms\Get $get): string {
+                                if (blank($get('activity_category_id'))) {
+                                    return '— Pilih Kategori Funnel di samping dahulu —';
+                                }
+                                if (blank($get('communication_channel'))) {
+                                    return '— Pilih Kanal Komunikasi di samping dahulu —';
+                                }
+                                $catName = \App\Models\ActivityCategory::find($get('activity_category_id'))?->name;
+                                return $catName ? "— Pilih Topik Interaksi ({$catName}) —" : '— Pilih Topik Interaksi —';
+                            })
+                            ->disabled(fn(Forms\Get $get): bool => blank($get('activity_category_id')) || blank($get('communication_channel')))
                             ->required(fn(Forms\Get $get): bool => $get('visit_type') === 'NonVisit')
                             ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'NonVisit')
+                            ->searchable()
+                            ->preload()
                             ->live(),
                         Forms\Components\Select::make('business_customer_id')
                             ->relationship(
@@ -287,7 +371,13 @@ class VisitReportResource extends Resource
                             ->itemLabel(fn(array $state): ?string => !empty($state['caption']) ? $state['caption'] : (!empty($state['file']) ? basename($state['file']) : 'Berkas Baru'))
                             ->columnSpanFull()
                             ->helperText(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit'
-                                ? 'Klik "+ Tambah Berkas Dokumen" untuk menambah bukti digital (screenshot WA, PDF proposal SPH, atau notulensi virtual meeting).'
+                                ? match ($get('communication_channel')) {
+                                    'Telepon' => 'Klik "+ Tambah Berkas Dokumen" untuk mengunggah tangkapan layar (screenshot) log panggilan atau riwayat call.',
+                                    'Chat' => 'Klik "+ Tambah Berkas Dokumen" untuk mengunggah tangkapan layar (screenshot) percakapan WhatsApp atau Telegram.',
+                                    'Email' => 'Klik "+ Tambah Berkas Dokumen" untuk mengunggah file PDF Surat Penawaran Harga (SPH), invoice, atau screenshot email terkirim.',
+                                    'Video Conference' => 'Klik "+ Tambah Berkas Dokumen" untuk mengunggah tangkapan layar sesi virtual meeting atau file notulensi rapat.',
+                                    default => 'Klik "+ Tambah Berkas Dokumen" untuk menambah bukti digital (screenshot chat, email, call log, atau berkas penawaran harga).',
+                                }
                                 : 'Klik "+ Tambah Berkas Dokumen" untuk menambah lampiran fisik (scan TTD kontrak, lembar BASO, faktur/tanda terima).'
                             ),
                     ])->columns([
@@ -434,7 +524,13 @@ class VisitReportResource extends Resource
                             ->label('Kanal Komunikasi')
                             ->badge()
                             ->color('info')
-                            ->icon('heroicon-m-chat-bubble-left-right')
+                            ->icon(fn(string $state): string => match ($state) {
+                                'Telepon' => 'heroicon-m-phone',
+                                'Chat' => 'heroicon-m-chat-bubble-left-right',
+                                'Email' => 'heroicon-m-envelope',
+                                'Video Conference' => 'heroicon-m-video-camera',
+                                default => 'heroicon-m-signal',
+                            })
                             ->visible(fn(VisitReport $record): bool => $record->visit_type === 'NonVisit' && filled($record->communication_channel)),
                         Infolists\Components\TextEntry::make('activity_topic')
                             ->label('Topik Interaksi Online')
