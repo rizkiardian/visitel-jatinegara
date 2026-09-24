@@ -15,4 +15,9 @@ class ActivityCategory extends Model
     {
         return $this->hasMany(VisitReport::class);
     }
+
+    public function activityTypes(): HasMany
+    {
+        return $this->hasMany(ActivityType::class, 'activity_category_id');
+    }
 }

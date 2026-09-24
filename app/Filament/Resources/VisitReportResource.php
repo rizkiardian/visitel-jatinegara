@@ -79,6 +79,39 @@ class VisitReportResource extends Resource
                                 $set('activity_topic', null);
                             })
                             ->label('Tipe Kunjungan'),
+                        Forms\Components\Select::make('activity_category_id')
+                            ->relationship('activityCategory', 'name')
+                            ->required()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('activity_type_id', null))
+                            ->label('Kategori Aktivitas (Funnel)'),
+                        Forms\Components\Select::make('activity_type_id')
+                            ->relationship(
+                                name: 'activityType',
+                                titleAttribute: 'name',
+                                modifyQueryUsing: function (Builder $query, Forms\Get $get, ?VisitReport $record) {
+                                    $catId = $get('activity_category_id');
+                                    if ($catId) {
+                                        $query->where(function ($q) use ($catId, $record) {
+                                            $q->where('activity_category_id', $catId);
+                                            if ($record?->activity_type_id) {
+                                                $q->orWhere('id', $record->activity_type_id);
+                                            }
+                                        });
+                                    }
+                                }
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->disabled(fn (Forms\Get $get): bool => blank($get('activity_category_id')))
+                            ->placeholder(fn (Forms\Get $get): string => blank($get('activity_category_id'))
+                                ? '— Pilih Kategori Funnel di samping dahulu —'
+                                : '— Pilih Jenis Kegiatan —'
+                            )
+                            ->label('Jenis Kegiatan'),
                         Forms\Components\Select::make('communication_channel')
                             ->label('Kanal Komunikasi Online')
                             ->options([
@@ -91,43 +124,31 @@ class VisitReportResource extends Resource
                             ->live()
                             ->afterStateUpdated(fn(Forms\Set $set) => $set('activity_topic', null)),
                         Forms\Components\Select::make('activity_topic')
-                            ->label(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit' ? 'Topik Interaksi Online' : 'Tujuan / Topik Kunjungan Fisik')
+                            ->label('Topik Interaksi Online')
                             ->options(function (Forms\Get $get): array {
-                                if ($get('visit_type') === 'NonVisit') {
-                                    $channel = $get('communication_channel');
-                                    return match ($channel) {
-                                        'Chat' => [
-                                            'Complain Handling' => 'Complain Handling',
-                                            'Diskusi Harga' => 'Diskusi Harga',
-                                            'Diskusi Produk' => 'Diskusi Produk',
-                                            'Pengiriman SPH' => 'Pengiriman SPH',
-                                        ],
-                                        'Email' => [
-                                            'Pengiriman Surat Penawaran Harga (SPH)' => 'Pengiriman Surat Penawaran Harga (SPH)',
-                                        ],
-                                        'Video Conference' => [
-                                            'Meeting Teknis' => 'Meeting Teknis',
-                                            'Meeting Produk' => 'Meeting Produk',
-                                            'Lainnya' => 'Lainnya',
-                                        ],
-                                        default => [],
-                                    };
-                                }
-
-                                return [
-                                    'Tanda Tangan Kontrak' => '📝 Tanda Tangan Kontrak',
-                                    'Penagihan' => '💰 Penagihan',
-                                    'Meeting' => '🤝 Meeting (Tatap Muka)',
-                                    'Pengambilan / Penyerahan Dokumen BASO' => '📑 Pengambilan / Penyerahan Dokumen BASO',
-                                ];
+                                $channel = $get('communication_channel');
+                                return match ($channel) {
+                                    'Chat' => [
+                                        'Complain Handling' => 'Complain Handling',
+                                        'Diskusi Harga' => 'Diskusi Harga',
+                                        'Diskusi Produk' => 'Diskusi Produk',
+                                        'Pengiriman SPH' => 'Pengiriman SPH',
+                                    ],
+                                    'Email' => [
+                                        'Pengiriman Surat Penawaran Harga (SPH)' => 'Pengiriman Surat Penawaran Harga (SPH)',
+                                    ],
+                                    'Video Conference' => [
+                                        'Meeting Teknis' => 'Meeting Teknis',
+                                        'Meeting Produk' => 'Meeting Produk',
+                                        'Lainnya' => 'Lainnya',
+                                    ],
+                                    default => [],
+                                };
                             })
-                            ->placeholder(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit' && blank($get('communication_channel')) ? '— Pilih kanal komunikasi di samping dahulu —' : '— Pilih Topik / Tujuan —')
-                            ->required()
-                            ->live()
-                            ->columnSpan([
-                                'default' => 1,
-                                'md' => fn(Forms\Get $get): int => $get('visit_type') === 'NonVisit' ? 1 : 2,
-                            ]),
+                            ->placeholder(fn(Forms\Get $get): string => blank($get('communication_channel')) ? '— Pilih kanal komunikasi di samping dahulu —' : '— Pilih Topik Interaksi —')
+                            ->required(fn(Forms\Get $get): bool => $get('visit_type') === 'NonVisit')
+                            ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'NonVisit')
+                            ->live(),
                         Forms\Components\Select::make('business_customer_id')
                             ->relationship(
                                 name: 'businessCustomer',
@@ -274,18 +295,12 @@ class VisitReportResource extends Resource
                         'md' => 2,
                     ]),
 
-                Forms\Components\Section::make('Funnel Penjualan & Layanan')
-                    ->description('Katalog layanan dan klasifikasi funnel bisnis Telkom.')
+                Forms\Components\Section::make('Katalog Layanan & Potensi Nilai Bisnis')
+                    ->description('Klasifikasi R-Level, estimasi nilai transaksi, dan katalog layanan Telkom yang ditawarkan.')
                     ->schema([
-                        Forms\Components\Select::make('activity_category_id')
-                            ->relationship('activityCategory', 'name')
-                            ->required()
-                            ->label('Kategori Aktivitas (Funnel)'),
-                        Forms\Components\Select::make('activity_type_id')
-                            ->relationship('activityType', 'name')
-                            ->label('Jenis Kegiatan'),
                         Forms\Components\Select::make('r_level_id')
                             ->relationship('rLevel', 'name')
+                            ->preload()
                             ->label('R-Level (Tingkat Kunjungan)'),
                         Forms\Components\TextInput::make('estimated_value')
                             ->numeric()
@@ -401,6 +416,20 @@ class VisitReportResource extends Resource
                             ->badge()
                             ->color(fn(string $state): string => $state === 'Visit' ? 'primary' : 'gray')
                             ->formatStateUsing(fn(string $state): string => $state === 'Visit' ? 'Direct Visit (Onsite)' : 'Non-Visit (Online)'),
+                        Infolists\Components\TextEntry::make('activityCategory.name')
+                            ->label('Kategori Funnel')
+                            ->badge()
+                            ->color(fn(string $state): string => match ($state) {
+                                'Approaching' => 'info',
+                                'Dealing' => 'warning',
+                                'Aftersales' => 'success',
+                                default => 'gray',
+                            }),
+                        Infolists\Components\TextEntry::make('activityType.name')
+                            ->label('Jenis Kegiatan')
+                            ->badge()
+                            ->color('gray')
+                            ->placeholder('-'),
                         Infolists\Components\TextEntry::make('communication_channel')
                             ->label('Kanal Komunikasi')
                             ->badge()
@@ -408,10 +437,10 @@ class VisitReportResource extends Resource
                             ->icon('heroicon-m-chat-bubble-left-right')
                             ->visible(fn(VisitReport $record): bool => $record->visit_type === 'NonVisit' && filled($record->communication_channel)),
                         Infolists\Components\TextEntry::make('activity_topic')
-                            ->label(fn(VisitReport $record): string => $record->visit_type === 'NonVisit' ? 'Topik Interaksi Online' : 'Tujuan Kunjungan Fisik')
+                            ->label('Topik Interaksi Online')
                             ->badge()
                             ->color('success')
-                            ->placeholder('-'),
+                            ->visible(fn(VisitReport $record): bool => $record->visit_type === 'NonVisit' && filled($record->activity_topic)),
                         Infolists\Components\TextEntry::make('businessCustomer.name')
                             ->label('Nama Customer (BC)')
                             ->icon('heroicon-m-building-office-2'),
@@ -462,14 +491,8 @@ class VisitReportResource extends Resource
                             ->columnSpanFull(),
                     ]),
 
-                Infolists\Components\Section::make('Funnel Penjualan & Layanan')
+                Infolists\Components\Section::make('Katalog Layanan & Potensi Nilai Bisnis')
                     ->schema([
-                        Infolists\Components\TextEntry::make('activityCategory.name')
-                            ->label('Kategori Funnel')
-                            ->badge(),
-                        Infolists\Components\TextEntry::make('activityType.name')
-                            ->label('Jenis Kegiatan')
-                            ->placeholder('-'),
                         Infolists\Components\TextEntry::make('rLevel.name')
                             ->label('R-Level (Tingkat Kunjungan)')
                             ->placeholder('-'),
@@ -568,10 +591,12 @@ class VisitReportResource extends Resource
                     ->badge()
                     ->color(fn(string $state): string => $state === 'Visit' ? 'primary' : 'gray')
                     ->formatStateUsing(fn(string $state): string => $state === 'Visit' ? 'Direct' : 'Non-Visit')
-                    ->description(fn(VisitReport $record): ?string => $record->activity_topic
-                        ? ($record->communication_channel ? $record->communication_channel . ' • ' . $record->activity_topic : $record->activity_topic)
-                        : null)
-                    ->label('Tipe & Topik'),
+                    ->description(fn(VisitReport $record): ?string => $record->visit_type === 'NonVisit'
+                        ? ($record->communication_channel && $record->activity_topic
+                            ? $record->communication_channel . ' • ' . $record->activity_topic
+                            : ($record->communication_channel ?? $record->activity_topic ?? $record->activityType?->name))
+                        : $record->activityType?->name)
+                    ->label('Tipe & Kegiatan'),
                 Tables\Columns\IconColumn::make('locations_count')
                     ->counts('locations')
                     ->label('GPS')
