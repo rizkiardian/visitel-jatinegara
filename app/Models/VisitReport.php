@@ -43,6 +43,30 @@ class VisitReport extends Model
         'document_file_url' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        // Berkas/lampiran/foto disimpan permanen sebagai arsip dan tidak dihapus dari disk:
+        /*
+        static::deleting(function (VisitReport $report) {
+            // 1. Hapus berkas fisik lampiran dokumen
+            if (!empty($report->document_file_url) && is_array($report->document_file_url)) {
+                foreach ($report->document_file_url as $item) {
+                    if (!empty($item['file'])) {
+                        Storage::disk('public')->delete($item['file']);
+                    }
+                }
+            }
+
+            // 2. Hapus berkas fisik foto kunjungan
+            foreach ($report->photos as $photo) {
+                if (!empty($photo->file_url)) {
+                    Storage::disk('public')->delete($photo->file_url);
+                }
+            }
+        });
+        */
+    }
+
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'employee_id');

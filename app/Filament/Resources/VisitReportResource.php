@@ -464,7 +464,7 @@ class VisitReportResource extends Resource
                     ]),
 
                 Forms\Components\Section::make('Status Validasi Supervisor')
-                    ->visible(fn(string $operation): bool => $operation !== 'create')
+                    ->hiddenOn('create')
                     ->description('Peninjauan dan persetujuan laporan kunjungan oleh Supervisor / Admin.')
                     ->schema([
                         Forms\Components\Select::make('validation_status')
@@ -578,7 +578,7 @@ class VisitReportResource extends Resource
                     ]),
 
                 Infolists\Components\Section::make('Lokasi GPS & Peta Kunjungan')
-                    ->visible(fn(VisitReport $record): bool => $record->visit_type === 'Visit' || $record->visit_type === null)
+                    ->visible(fn(?VisitReport $record): bool => $record?->visit_type === 'Visit' || $record?->visit_type === null)
                     ->schema([
                         Infolists\Components\ViewEntry::make('gps_location')
                             ->view('filament.infolists.components.gps-location-view')
@@ -586,15 +586,15 @@ class VisitReportResource extends Resource
                     ]),
 
                 Infolists\Components\Section::make('Dokumentasi Foto Fisik Kunjungan')
-                    ->visible(fn(VisitReport $record): bool => $record->visit_type === 'Visit' || $record->visit_type === null)
+                    ->visible(fn(?VisitReport $record): bool => $record?->visit_type === 'Visit' || $record?->visit_type === null)
                     ->schema([
                         Infolists\Components\ViewEntry::make('visit_photos')
                             ->view('filament.infolists.components.visit-photos-view')
                             ->columnSpanFull(),
                     ]),
 
-                Infolists\Components\Section::make(fn(VisitReport $record): string => $record->visit_type === 'NonVisit' ? 'Bukti Aktivitas Interaksi Online' : 'Lampiran Dokumen Fisik (Kontrak / BASO / Tanda Terima)')
-                    ->visible(fn(VisitReport $record): bool => !empty($record->document_file_url))
+                Infolists\Components\Section::make(fn(?VisitReport $record): string => $record?->visit_type === 'NonVisit' ? 'Bukti Aktivitas Interaksi Online' : 'Lampiran Dokumen Fisik (Kontrak / BASO / Tanda Terima)')
+                    ->visible(fn(?VisitReport $record): bool => !empty($record?->document_file_url))
                     ->schema([
                         Infolists\Components\ViewEntry::make('document_files')
                             ->view('filament.infolists.components.visit-documents-view')
