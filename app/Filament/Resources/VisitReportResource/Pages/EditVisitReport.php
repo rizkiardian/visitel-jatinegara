@@ -49,6 +49,20 @@ class EditVisitReport extends EditRecord
         return $data;
     }
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if (auth()->user()?->role === 'AM') {
+            unset($data['validation_status'], $data['validator_id'], $data['validation_notes'], $data['validated_at']);
+        } elseif (!empty($data['validation_status']) && in_array($data['validation_status'], ['Valid', 'Rejected'])) {
+            $data['validated_at'] = now();
+            if (empty($data['validator_id']) && auth()->user()?->employee_id) {
+                $data['validator_id'] = auth()->user()->employee_id;
+            }
+        }
+
+        return $data;
+    }
+
     protected function afterSave(): void
     {
         $data = $this->form->getRawState();

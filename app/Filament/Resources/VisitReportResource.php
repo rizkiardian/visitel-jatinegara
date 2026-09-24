@@ -436,50 +436,10 @@ class VisitReportResource extends Resource
                             ->label('Estimasi Nilai Transaksi (Rp)')
                             ->placeholder('0'),
 
-                        Forms\Components\Select::make('service_category_id')
-                            ->label('Kategori Layanan')
-                            ->options(
-                                \App\Models\ServiceCategory::pluck('name', 'id')
-                                    ->toArray() + ['all' => 'Semua Kategori (Tampilkan Semua)']
-                            )
-                            ->placeholder('-- Pilih Kategori Layanan Terlebih Dahulu --')
-                            ->helperText('Pilih kategori terlebih dahulu agar daftar layanan yang relevan muncul.')
-                            ->live()
-                            ->dehydrated(false)
-                            ->afterStateHydrated(function (Forms\Components\Select $component, ?VisitReport $record) {
-                                if ($record && $record->exists) {
-                                    $catIds = $record->services()->pluck('service_category_id')->unique()->values();
-                                    if ($catIds->count() > 1) {
-                                        $component->state('all');
-                                    } elseif ($catIds->count() === 1) {
-                                        $component->state((string) $catIds->first());
-                                    }
-                                }
-                            })
-                            ->columnSpanFull(),
-
-                        Forms\Components\Placeholder::make('services_empty_hint')
-                            ->label('Layanan Ditawarkan / Terkait')
-                            ->content('Pilih Kategori Layanan di atas terlebih dahulu untuk menampilkan daftar opsi layanan.')
-                            ->visible(fn(Forms\Get $get): bool => blank($get('service_category_id')))
-                            ->columnSpanFull(),
-
                         Forms\Components\CheckboxList::make('services')
-                            ->relationship(
-                                name: 'services',
-                                titleAttribute: 'name',
-                                modifyQueryUsing: fn($query, Forms\Get $get) => $query->when(
-                                    $get('service_category_id') && $get('service_category_id') !== 'all',
-                                    fn($q) => $q->where('service_category_id', $get('service_category_id')),
-                                    fn($q) => $get('service_category_id') === 'all' ? $q : $q->whereRaw('1 = 0')
-                                )
-                            )
-                            ->visible(fn(Forms\Get $get): bool => filled($get('service_category_id')))
-                            ->columns([
-                                'default' => 1,
-                                'sm' => 2,
-                                'md' => 4,
-                            ])
+                            ->relationship('services', 'name')
+                            ->view('filament.forms.components.grouped-services-checkboxes')
+                            ->live()
                             ->columnSpanFull()
                             ->label('Layanan Ditawarkan / Terkait'),
                     ])->columns([
@@ -504,6 +464,8 @@ class VisitReportResource extends Resource
                     ]),
 
                 Forms\Components\Section::make('Status Validasi Supervisor')
+                    ->visible(fn(string $operation): bool => $operation !== 'create')
+                    ->description('Peninjauan dan persetujuan laporan kunjungan oleh Supervisor / Admin.')
                     ->schema([
                         Forms\Components\Select::make('validation_status')
                             ->options([
@@ -513,14 +475,28 @@ class VisitReportResource extends Resource
                             ])
                             ->default('Pending')
                             ->required()
+                            ->disabled(fn () => auth()->user()?->role === 'AM')
+                            ->dehydrated(fn () => auth()->user()?->role !== 'AM')
+                            ->live()
+                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                if (in_array($state, ['Valid', 'Rejected']) && auth()->user()?->employee_id) {
+                                    $set('validator_id', auth()->user()->employee_id);
+                                }
+                            })
                             ->label('Status Validasi'),
                         Forms\Components\Select::make('validator_id')
                             ->relationship('validator', 'name')
                             ->searchable()
+                            ->preload()
+                            ->disabled(fn () => auth()->user()?->role === 'AM')
+                            ->dehydrated(fn () => auth()->user()?->role !== 'AM')
                             ->label('Validator / Supervisor'),
                         Forms\Components\Textarea::make('validation_notes')
                             ->rows(2)
                             ->label('Catatan Validasi')
+                            ->placeholder('Catatan atau alasan persetujuan/penolakan oleh supervisor')
+                            ->disabled(fn () => auth()->user()?->role === 'AM')
+                            ->dehydrated(fn () => auth()->user()?->role !== 'AM')
                             ->columnSpanFull(),
                     ])->columns([
                         'default' => 1,

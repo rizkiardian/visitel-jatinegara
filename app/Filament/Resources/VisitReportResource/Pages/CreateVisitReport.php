@@ -12,6 +12,16 @@ class CreateVisitReport extends CreateRecord
 {
     protected static string $resource = VisitReportResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['validation_status'] = 'Pending';
+        $data['validator_id'] = null;
+        $data['validation_notes'] = null;
+        $data['validated_at'] = null;
+
+        return $data;
+    }
+
     protected function afterCreate(): void
     {
         $data = $this->form->getRawState();
