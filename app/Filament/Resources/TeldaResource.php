@@ -32,6 +32,7 @@ class TeldaResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
+                    ->maxLength(100)
                     ->label('Nama Telda')
                     ->placeholder('Contoh: PSM, KBY, RMG, JTN'),
                 Forms\Components\Select::make('witel_id')

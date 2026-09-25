@@ -322,13 +322,17 @@ class VisitReportResource extends Resource
                         Forms\Components\TextInput::make('customer_pic_name')
                             ->label('PIC Pelanggan')
                             ->placeholder('Nama kontak person saat kunjungan')
-                            ->required(),
+                            ->required()
+                            ->maxLength(100),
                         Forms\Components\DatePicker::make('visit_date')
                             ->default(now())
                             ->required()
-                            ->label('Tanggal Kunjungan'),
+                            ->maxDate(now())
+                            ->label('Tanggal Kunjungan')
+                            ->helperText('Maksimal hari ini (kunjungan tidak boleh di masa depan).'),
                         Forms\Components\TimePicker::make('visit_time')
                             ->default(now()->format('H:i'))
+                            ->required()
                             ->label('Waktu Kunjungan'),
                     ])->columns([
                         'default' => 1,
@@ -363,9 +367,10 @@ class VisitReportResource extends Resource
                             ->imageEditor()
                             ->openable()
                             ->downloadable()
+                            ->maxSize(10240)
                             ->dehydrated(false)
                             ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'Visit' || $get('visit_type') === null)
-                            ->helperText('Ambil foto gedung, gerbang, atau papan nama kantor customer.')
+                            ->helperText('Ambil foto gedung, gerbang, atau papan nama kantor customer (Maks 10MB).')
                             ->columnSpan(1),
                         Forms\Components\FileUpload::make('photo_pic')
                             ->label('Foto Bersama PIC Pelanggan')
@@ -376,9 +381,10 @@ class VisitReportResource extends Resource
                             ->imageEditor()
                             ->openable()
                             ->downloadable()
+                            ->maxSize(10240)
                             ->dehydrated(false)
                             ->visible(fn(Forms\Get $get): bool => $get('visit_type') === 'Visit' || $get('visit_type') === null)
-                            ->helperText('Ambil foto saat berdiskusi atau bersama PIC customer.')
+                            ->helperText('Ambil foto saat berdiskusi atau bersama PIC customer (Maks 10MB).')
                             ->columnSpan(1),
                         Forms\Components\Repeater::make('document_file_url')
                             ->label(fn(Forms\Get $get): string => $get('visit_type') === 'NonVisit' ? 'Bukti Digital Aktivitas Online (Screenshot Chat / Email / SPH / Vicon)' : 'Lampiran Dokumen Fisik (Kontrak / BASO / Tanda Terima)')
@@ -392,6 +398,7 @@ class VisitReportResource extends Resource
                                     ->openable()
                                     ->downloadable()
                                     ->required()
+                                    ->maxSize(10240)
                                     ->helperText('Format: PDF, JPG, PNG, WEBP (Maks 10MB)'),
                                 Forms\Components\TextInput::make('caption')
                                     ->label('Keterangan Dokumen (Opsional)')
@@ -434,7 +441,10 @@ class VisitReportResource extends Resource
                             ->numeric()
                             ->prefix('Rp')
                             ->label('Estimasi Nilai Transaksi (Rp)')
-                            ->placeholder('0'),
+                            ->placeholder('0')
+                            ->minValue(0)
+                            ->maxValue(999999999999.99)
+                            ->step(1000),
 
                         Forms\Components\CheckboxList::make('services')
                             ->relationship('services', 'name')
@@ -452,14 +462,17 @@ class VisitReportResource extends Resource
                         Forms\Components\Textarea::make('activity_description')
                             ->rows(3)
                             ->label('Deskripsi Kegiatan / Story Kunjungan')
+                            ->maxLength(2000)
                             ->columnSpanFull(),
                         Forms\Components\Textarea::make('action_plan')
                             ->rows(2)
                             ->label('Action Plan (Langkah Selanjutnya)')
+                            ->maxLength(1000)
                             ->columnSpanFull(),
                         Forms\Components\Textarea::make('voc')
                             ->rows(2)
                             ->label('Voice of Customer (VOC / Feedback / Keluhan)')
+                            ->maxLength(1000)
                             ->columnSpanFull(),
                     ]),
 
@@ -495,6 +508,7 @@ class VisitReportResource extends Resource
                             ->rows(2)
                             ->label('Catatan Validasi')
                             ->placeholder('Catatan atau alasan persetujuan/penolakan oleh supervisor')
+                            ->maxLength(1000)
                             ->disabled(fn () => auth()->user()?->role === 'AM')
                             ->dehydrated(fn () => auth()->user()?->role !== 'AM')
                             ->columnSpanFull(),

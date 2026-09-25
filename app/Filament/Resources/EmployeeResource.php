@@ -34,15 +34,19 @@ class EmployeeResource extends Resource
                     ->schema([
                         Forms\Components\TextInput::make('name')
                             ->required()
+                            ->maxLength(150)
                             ->label('Nama Lengkap'),
                         Forms\Components\TextInput::make('nip')
+                            ->maxLength(50)
                             ->label('NIP (Nomor Induk Pegawai)'),
                         Forms\Components\TextInput::make('email')
                             ->email()
+                            ->maxLength(100)
                             ->required()
                             ->label('Email Dinas / Telkom'),
                         Forms\Components\TextInput::make('phone')
                             ->tel()
+                            ->maxLength(30)
                             ->label('Nomor WhatsApp / HP'),
                         Forms\Components\Select::make('role_id')
                             ->relationship('role', 'name')

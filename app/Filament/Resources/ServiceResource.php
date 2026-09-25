@@ -32,6 +32,7 @@ class ServiceResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
+                    ->maxLength(100)
                     ->label('Nama Layanan')
                     ->placeholder('Astinet, Indibiz, dsb.'),
                 Forms\Components\Select::make('service_category_id')

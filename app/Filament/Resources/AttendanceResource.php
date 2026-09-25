@@ -57,6 +57,8 @@ class AttendanceResource extends Resource
                         Forms\Components\TextInput::make('late_minutes')
                             ->numeric()
                             ->default(0)
+                            ->minValue(0)
+                            ->maxValue(1440)
                             ->label('Keterlambatan (Menit)'),
                         Forms\Components\Select::make('day_type')
                             ->options([
@@ -71,6 +73,7 @@ class AttendanceResource extends Resource
                             ->default(true)
                             ->label('Wajib Hadir'),
                         Forms\Components\Textarea::make('notes')
+                            ->maxLength(500)
                             ->label('Keterangan / Alasan')
                             ->columnSpanFull(),
                     ])->columns(2),

@@ -34,6 +34,7 @@ class BusinessCustomerResource extends Resource
                 ->schema([
                     Forms\Components\TextInput::make('name')
                         ->required()
+                        ->maxLength(255)
                         ->label('Nama Perusahaan / BC')
                         ->placeholder('PT Telkom Indonesia')
                         ->columnSpanFull(),
@@ -53,6 +54,7 @@ class BusinessCustomerResource extends Resource
                         })
                         ->label('Account Manager (AM) PIC'),
                     Forms\Components\TextInput::make('nipnas')
+                        ->maxLength(50)
                         ->label('NIPNAS')
                         ->placeholder('Nomor NIPNAS Telkom'),
                     Forms\Components\Select::make('status')
@@ -130,11 +132,14 @@ class BusinessCustomerResource extends Resource
             Forms\Components\Section::make('Kontak & Lokasi')
                 ->schema([
                     Forms\Components\TextInput::make('default_pic_name')
+                        ->maxLength(100)
                         ->label('Nama PIC Utama'),
                     Forms\Components\TextInput::make('default_pic_contact')
+                        ->maxLength(100)
                         ->label('Kontak PIC (No. Telp / Email)'),
                     Forms\Components\Textarea::make('address')
                         ->rows(2)
+                        ->maxLength(500)
                         ->label('Alamat Kantor BC')
                         ->columnSpanFull(),
                 ])->columns(2),
